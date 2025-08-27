@@ -140,7 +140,7 @@ enable_paging:
 display_error_and_halt:
 	; The ESI register should point to a null-terminated string to display
 	%define VGA_ATTRIBUTE 0x4f ; Light red on black
-	mov edi, 0xb8000 ; Start writing the error message after "ERROR: "
+	mov edi, 0xb8000 ; Start writing the error message at the beginning of video memory
 	mov ax, 0 ; Clear AX to prepare for STOSW
 	mov es, ax ; Set ES to 0 to point to the start of video memory segment
 .print_loop:
