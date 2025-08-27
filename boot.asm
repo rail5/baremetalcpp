@@ -47,7 +47,7 @@ verify_booted_by_multiboot_bootloader:
 	jne .error_not_multiboot ; If not, quit!
 	ret
 .error_not_multiboot:
-	mov al, "1"
+	lea esi, [error_msg_not_multiboot]
 	jmp display_error_and_halt
 
 verify_cpuid_instruction_available:
@@ -67,7 +67,7 @@ verify_cpuid_instruction_available:
 	je .error_no_cpuid ; If they are the same, CPUID is not supported. If the ID bit successfully flipped, CPUID is supported.
 	ret
 .error_no_cpuid:
-	mov al, "2"
+	lea esi, [error_msg_no_cpuid]
 	jmp display_error_and_halt
 
 verify_64bit_longmode_supported:
@@ -85,7 +85,7 @@ verify_64bit_longmode_supported:
 	jz .error_longmode_not_supported ; If bit 29 is not set, long mode is not supported
 	ret
 .error_longmode_not_supported:
-	mov al, "3"
+	lea esi, [error_msg_longmode_not_supported]
 	jmp display_error_and_halt
 
 setup_page_tables:
@@ -138,27 +138,19 @@ enable_paging:
 	ret
 
 display_error_and_halt:
-	; Error code (single ASCII character) should be in the AL register
+	; The ESI register should point to a null-terminated string to display
 	%define VGA_ATTRIBUTE 0x4f ; Light red on black
-	%define LETTER_E 0x45
-	%define LETTER_R 0x52
-	%define LETTER_O 0x4f
-	%define LETTER_SPACE 0x20
-	%define LETTER_COLON 0x3a
-	; Display: "ERROR: X" where X is the error code in AL
-	mov dword [0xb8000], LETTER_E | (VGA_ATTRIBUTE << 8) | (LETTER_R << 16) | (VGA_ATTRIBUTE << 24)
-	mov dword [0xb8004], LETTER_R | (VGA_ATTRIBUTE << 8) | (LETTER_O << 16) | (VGA_ATTRIBUTE << 24)
-	mov dword [0xb8008], LETTER_R | (VGA_ATTRIBUTE << 8) | (LETTER_COLON << 16) | (VGA_ATTRIBUTE << 24)
-	mov byte  [0xb800a], LETTER_SPACE | (VGA_ATTRIBUTE << 8)
-	mov byte  [0xb800c], al
-	; Blank the rest of the line for cleanliness
-	mov ecx, 78
-	mov edi, 0xb800e
-	mov al, LETTER_SPACE
-	mov ah, VGA_ATTRIBUTE
-.rep stosw
-	dec ecx
-	jnz .rep
+	mov edi, 0xb8000 ; Start writing the error message after "ERROR: "
+	mov ax, 0 ; Clear AX to prepare for STOSW
+	mov es, ax ; Set ES to 0 to point to the start of video memory segment
+.print_loop:
+		lodsb ; Load the next byte from the string at ESI into AL, and increment ESI
+		cmp al, 0 ; Check for null terminator
+		je .done ; If we hit the null terminator, we're done
+		mov ah, VGA_ATTRIBUTE
+		stosw ; Write the character and attribute to video memory at ES:DI, and increment DI by 2
+		jmp .print_loop
+.done:
 	; Halt the CPU
 	cli
 	hlt
@@ -183,6 +175,9 @@ gdt64:
 .pointer:
 	dw $ - gdt64 - 1 ; Length
 	dq gdt64 ; Address
+error_msg_not_multiboot db "ERROR: Not booted by a Multiboot2-compliant bootloader", 0
+error_msg_no_cpuid db "ERROR: CPU does not support the CPUID instruction", 0
+error_msg_longmode_not_supported db "ERROR: CPU does not support 64-bit long mode", 0
 bits 64
 extern kernel_main
 long_mode_start:
