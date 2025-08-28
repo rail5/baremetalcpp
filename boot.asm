@@ -18,10 +18,22 @@ header_start:
 	dd 8
 header_end:
 
+; We will store the Multiboot2 magic number and info structure address here for later use
+section .data
+multiboot_magic dd 0
+multiboot_info dd 0
+
 section .text
 bits 32
 start:
 	mov esp, stack_top ; Set up the stack pointer to the top of the stack
+
+	; Before we continue:
+	; Grub2 should have put the Multiboot2 magic number in EAX
+	; And the address of the Multiboot2 information structure in EBX
+	; Let's save those values for later use
+	mov [multiboot_magic], eax
+	mov [multiboot_info], ebx
 
 	; Sanity checks:
 	; 1. Were we booted by a Multiboot2-compliant bootloader?
@@ -188,6 +200,11 @@ long_mode_start:
     mov es, ax
     mov fs, ax
     mov gs, ax
-    
-    call kernel_main ; kernel_main is defined in kernel.cpp
-    hlt
+
+	; Remember how we saved the Multiboot2 magic number and info structure when we started?
+	; Let's put them back where the C++ code expects them
+	mov rsi, [multiboot_info]    ; 2nd argument (info structure pointer) in rsi
+	mov rdi, [multiboot_magic]   ; 1st argument (magic number) in rdi
+
+	call kernel_main ; kernel_main is defined in kernel.cpp
+	hlt

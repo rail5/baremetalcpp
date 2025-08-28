@@ -50,13 +50,25 @@ void itoa(T value, char* str, int base) {
 }
 
 extern "C" void kernel_main(uint32_t magic, multiboot_info_t* mbi) {
-	/*if (magic != 0x36d76289) {  // Multiboot2 magic
+	if (magic != 0x36d76289) {  // Multiboot2 magic
 		// Display error message
 		VGATextBuffer vga;
 		vga.write("Invalid multiboot magic", 0, 0, 0x4F); // Red background
-		shutdown();
+		char num_str[32];
+		itoa<uint32_t>(magic, num_str, 16);
+		vga.write(" Magic: 0x", 0, 1, 0x4F);
+		vga.write(num_str, 9, 1, 0x4F);
+		// Halt the system
 		return;
-	}*/ // This check fails. We did not tell GRUB to pass us the multiboot info structure
+	}
+
+	if (mbi == nullptr) {
+		// Display error message
+		VGATextBuffer vga;
+		vga.write("No multiboot info provided", 0, 0, 0x4F); // Red background
+		// Halt the system
+		return;
+	}
 	
 	// Initialize VGA text buffer
 	VGATextBuffer vga;
@@ -80,11 +92,4 @@ extern "C" void kernel_main(uint32_t magic, multiboot_info_t* mbi) {
 	vga.write(num_str, 0, line++);
 
 	while (true) {}
-	
-	/*
-	if (mbi->flags & MULTIBOOT_INFO_BOOT_LOADER_NAME) {
-		const char* bootloader_name = reinterpret_cast<const char*>(static_cast<uint64_t>(mbi->boot_loader_name));
-		vga.write("Bootloader: ", 0, 1);
-		vga.write(bootloader_name, 12, 1);
-	}*/ // Will be available when we tell GRUB to pass it
 }
